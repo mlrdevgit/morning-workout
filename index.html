@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Morning Routine</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg: #1a1a2e;
+  --bg-card: #16213e;
+  --text: #e8e8e8;
+  --text-dim: #8888aa;
+  --accent: #e2875e;
+  --accent-glow: rgba(226,135,94,0.25);
+  --progress-bg: #2a2a4a;
+  --btn-bg: #2a2a4a;
+  --btn-hover: #3a3a5a;
+  --success: #5ece7b;
+  --ring-track: #2a2a4a;
+  --ring-fill: #e2875e;
+  --countdown-bg: rgba(0,0,0,0.7);
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+:root.light {
+  --bg: #f5f0eb;
+  --bg-card: #ffffff;
+  --text: #2c2c2c;
+  --text-dim: #888888;
+  --accent: #d4714e;
+  --accent-glow: rgba(212,113,78,0.2);
+  --progress-bg: #e0dcd7;
+  --btn-bg: #e8e3de;
+  --btn-hover: #d8d3ce;
+  --success: #4caf50;
+  --ring-track: #e0dcd7;
+  --ring-fill: #d4714e;
+  --countdown-bg: rgba(255,255,255,0.85);
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s, color 0.3s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Theme toggle */
+#theme-toggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  background: var(--btn-bg);
+  border: none;
+  color: var(--text);
+  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+#theme-toggle:hover { background: var(--btn-hover); }
+
+/* Screens */
+.screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 480px;
+  padding: 20px;
+  text-align: center;
+}
+.screen.active { display: flex; }
+
+/* Selection screen */
+.app-title {
+  font-size: clamp(1.6rem, 5vw, 2.2rem);
+  font-weight: 700;
+  margin-bottom: 4px;
+  letter-spacing: -0.5px;
+}
+.app-subtitle {
+  color: var(--text-dim);
+  font-size: clamp(0.85rem, 2.5vw, 1rem);
+  margin-bottom: 32px;
+  line-height: 1.4;
+}
+
+.tier-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.tier-btn {
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: 16px;
+  padding: 20px 12px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow);
+}
+.tier-btn:hover, .tier-btn:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+  transform: translateY(-2px);
+}
+.tier-btn:active { transform: translateY(0); }
+
+.tier-time {
+  font-size: clamp(2rem, 6vw, 2.8rem);
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+}
+.tier-unit {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.tier-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 8px;
+  line-height: 1.3;
+}
+
+.ultra-btn {
+  background: var(--btn-bg);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 14px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.85rem;
+  width: 100%;
+  transition: all 0.2s;
+}
+.ultra-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* Workout screen */
+#workout-screen {
+  position: relative;
+  height: 100%;
+  justify-content: space-between;
+  padding: 16px 20px 24px;
+}
+
+.workout-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.workout-tier-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+.workout-progress-text {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 4px;
+  background: var(--progress-bg);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.timer-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  width: 100%;
+}
+
+.exercise-name {
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-weight: 700;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+.exercise-tips {
+  color: var(--text-dim);
+  font-size: clamp(0.8rem, 2.5vw, 0.95rem);
+  margin-bottom: 24px;
+  line-height: 1.5;
+  max-width: 320px;
+}
+
+.ring-container {
+  position: relative;
+  width: clamp(180px, 50vw, 240px);
+  height: clamp(180px, 50vw, 240px);
+}
+.ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.ring-track {
+  fill: none;
+  stroke: var(--ring-track);
+  stroke-width: 6;
+}
+.ring-fill {
+  fill: none;
+  stroke: var(--ring-fill);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.1s linear;
+}
+.timer-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(3rem, 12vw, 4.5rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.timer-paused .timer-text {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.next-preview {
+  margin-top: 20px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+.next-preview strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.workout-controls {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 16px;
+}
+.ctrl-btn {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--btn-bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.ctrl-btn:hover { background: var(--btn-hover); }
+.ctrl-btn.stop { color: #e85555; }
+.ctrl-btn.mute-btn { flex: 0 0 48px; font-size: 1.1rem; }
+
+/* Countdown overlay */
+.countdown-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--countdown-bg);
+  z-index: 50;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.countdown-overlay.active { display: flex; }
+.countdown-number {
+  font-size: clamp(6rem, 25vw, 10rem);
+  font-weight: 900;
+  color: var(--accent);
+  animation: countPop 0.5s ease-out;
+}
+.countdown-label {
+  font-size: clamp(1rem, 3vw, 1.3rem);
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+@keyframes countPop {
+  0% { transform: scale(1.4); opacity: 0.3; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Complete screen */
+.complete-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+}
+.complete-title {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.complete-subtitle {
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+.complete-time {
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 32px;
+}
+.restart-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 16px 48px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.restart-btn:hover { opacity: 0.85; }
+
+/* Tap hint */
+.tap-hint {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  margin-top: 8px;
+}
+</style>
+</head>
+<body>
+
+<button id="theme-toggle" aria-label="Toggle theme">&#9789;</button>
+
+<!-- SELECTION SCREEN -->
+<div id="select-screen" class="screen active">
+  <div class="app-title">Morning Routine</div>
+  <div class="app-subtitle">You only have to do the 1-minute version.<br>Once you start, inertia does the rest.</div>
+  <div class="tier-grid">
+    <button class="tier-btn" data-tier="1" onclick="startWorkout(1)">
+      <div class="tier-time">1</div>
+      <div class="tier-unit">minute</div>
+      <div class="tier-label">Wake Up the System</div>
+    </button>
+    <button class="tier-btn" data-tier="3" onclick="startWorkout(3)">
+      <div class="tier-time">3</div>
+      <div class="tier-unit">minutes</div>
+      <div class="tier-label">Add Foundational Strength</div>
+    </button>
+    <button class="tier-btn" data-tier="5" onclick="startWorkout(5)">
+      <div class="tier-time">5</div>
+      <div class="tier-unit">minutes</div>
+      <div class="tier-label">Add Mobility &amp; Stability</div>
+    </button>
+    <button class="tier-btn" data-tier="10" onclick="startWorkout(10)">
+      <div class="tier-time">10</div>
+      <div class="tier-unit">minutes</div>
+      <div class="tier-label">Full Strength + Mobility</div>
+    </button>
+  </div>
+  <button class="ultra-btn" onclick="startWorkout(0)">
+    Ultra-minimal: 5 squats, 5 pushups, 5 deep breaths
+  </button>
+</div>
+
+<!-- COUNTDOWN OVERLAY -->
+<div id="countdown-overlay" class="countdown-overlay">
+  <div id="countdown-number" class="countdown-number"></div>
+  <div id="countdown-label" class="countdown-label"></div>
+</div>
+
+<!-- WORKOUT SCREEN -->
+<div id="workout-screen" class="screen">
+  <div style="width:100%">
+    <div class="workout-header">
+      <div id="workout-tier-label" class="workout-tier-label"></div>
+      <div id="workout-progress-text" class="workout-progress-text"></div>
+    </div>
+    <div class="progress-bar-container">
+      <div id="progress-bar-fill" class="progress-bar-fill"></div>
+    </div>
+  </div>
+
+  <div class="timer-area" id="timer-area" onclick="togglePause()">
+    <div id="exercise-name" class="exercise-name"></div>
+    <div id="exercise-tips" class="exercise-tips"></div>
+    <div class="ring-container" id="ring-container">
+      <svg class="ring-svg" viewBox="0 0 120 120">
+        <circle class="ring-track" cx="60" cy="60" r="54"/>
+        <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="54"/>
+      </svg>
+      <div class="timer-text" id="timer-text"></div>
+    </div>
+    <div id="next-preview" class="next-preview"></div>
+    <div class="tap-hint">tap to pause / resume</div>
+  </div>
+
+  <div class="workout-controls">
+    <button class="ctrl-btn mute-btn" id="mute-btn" onclick="toggleMute()" aria-label="Toggle sound">&#128264;</button>
+    <button class="ctrl-btn" onclick="skipExercise()">Skip</button>
+    <button class="ctrl-btn stop" onclick="stopWorkout()">Stop</button>
+  </div>
+</div>
+
+<!-- COMPLETE SCREEN -->
+<div id="complete-screen" class="screen">
+  <div class="complete-icon">&#10024;</div>
+  <div class="complete-title">Well done!</div>
+  <div id="complete-subtitle" class="complete-subtitle"></div>
+  <div id="complete-time" class="complete-time"></div>
+  <button class="restart-btn" onclick="showScreen('select-screen')">Do it again</button>
+</div>
+
+<script>
+// --- Exercise data ---
+var EXERCISES = [
+  // Tier 1: Wake Up the System (1 min)
+  { name: 'Cat-Cow', duration: 30, tips: 'Mobilize your spine. Inhale to arch, exhale to round.', tier: 1 },
+  { name: 'Forward Fold', duration: 15, tips: 'Stretch hamstrings and lower back. Let your head relax.', tier: 1 },
+  { name: 'Overhead Stretch', duration: 15, tips: 'Full body elongation. One deep breath.', tier: 1 },
+
+  // Tier 3: Foundational Strength (+2 min)
+  { name: 'Squats', duration: 30, tips: 'Slow and controlled. Full range if possible.', tier: 3 },
+  { name: 'Pushups', duration: 30, tips: 'Knees OK. Keep core tight.', tier: 3 },
+  { name: 'Glute Bridge', duration: 30, tips: 'Squeeze glutes at the top. Slow descent.', tier: 3 },
+  { name: 'Plank', duration: 30, tips: 'Straight line from head to heels. Breathe.', tier: 3 },
+
+  // Tier 5: Mobility & Stability (+2 min)
+  { name: "World's Greatest Stretch", duration: 30, tips: 'Lunge + rotate torso upward. 15 sec per side.', tier: 5 },
+  { name: 'Bird Dog', duration: 30, tips: 'Opposite arm and leg. Hold 2-3 sec each rep.', tier: 5 },
+  { name: 'Deep Squat Hold', duration: 30, tips: 'Sit deep. Elbows push knees out. Breathe.', tier: 5 },
+  { name: 'Shoulder CARs', duration: 30, tips: 'Controlled articular rotations. Slow full circles.', tier: 5 },
+
+  // Tier 10: Full routine (+5 min)
+  { name: 'Reverse Lunges', duration: 60, tips: 'Alternate legs. Keep torso upright.', tier: 10 },
+  { name: 'Side Plank', duration: 60, tips: '30 seconds per side. Stack feet or stagger.', tier: 10 },
+  { name: 'Hip Hinge', duration: 60, tips: 'Good mornings. Slight knee bend, hinge at hips.', tier: 10 },
+  { name: 'Wall Angels', duration: 60, tips: 'Back against wall. Slide arms up and down slowly.', tier: 10 },
+  { name: 'Forward Fold & Breathing', duration: 60, tips: 'Relax completely. Deep slow breaths.', tier: 10 }
+];
+
+var ULTRA_EXERCISES = [
+  { name: '5 Squats', duration: 30, tips: 'Slow and controlled. Count them out.', tier: 0 },
+  { name: '5 Pushups', duration: 30, tips: 'Knees OK. Full range of motion.', tier: 0 },
+  { name: '5 Deep Breaths', duration: 30, tips: 'Arms overhead. Breathe fully.', tier: 0 }
+];
+
+var TIER_LABELS = {
+  0: 'Ultra-Minimal',
+  1: '1 Min \u2014 Wake Up',
+  3: '3 Min \u2014 Strength',
+  5: '5 Min \u2014 Mobility',
+  10: '10 Min \u2014 Full'
+};
+
+// --- State ---
+var currentExercises = [];
+var currentIndex = 0;
+var currentTier = 0;
+var exerciseStartTime = 0;
+var exerciseRemaining = 0;
+var paused = false;
+var pausedAt = 0;
+var rafId = null;
+var muted = false;
+var workoutStartTime = 0;
+var countdownInterval = null;
+var inCountdown = false;
+
+// --- Audio ---
+var audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+function playBeep(freq, duration, volume) {
+  if (muted) return;
+  try {
+    var ctx = getAudioCtx();
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.value = volume || 0.15;
+    gain.gain.setTargetAtTime(0, ctx.currentTime + duration - 0.05, 0.02);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch (e) { /* ignore audio errors */ }
+}
+
+function beepTick() { playBeep(660, 0.1, 0.1); }
+function beepTransition() { playBeep(880, 0.25, 0.18); }
+function beepComplete() {
+  playBeep(660, 0.15, 0.15);
+  setTimeout(function() { playBeep(880, 0.15, 0.15); }, 180);
+  setTimeout(function() { playBeep(1100, 0.3, 0.18); }, 360);
+}
+
+// --- Ring ---
+var RING_CIRCUMFERENCE = 2 * Math.PI * 54; // r=54
+
+function setRingProgress(fraction) {
+  var offset = RING_CIRCUMFERENCE * (1 - fraction);
+  var el = document.getElementById('ring-fill');
+  el.style.strokeDasharray = RING_CIRCUMFERENCE;
+  el.style.strokeDashoffset = offset;
+}
+
+// --- Screens ---
+function showScreen(id) {
+  var screens = document.querySelectorAll('.screen');
+  for (var i = 0; i < screens.length; i++) {
+    screens[i].classList.remove('active');
+  }
+  document.getElementById(id).classList.add('active');
+}
+
+// --- Theme ---
+var isDark = true;
+
+function applyTheme() {
+  if (isDark) {
+    document.documentElement.classList.remove('light');
+    document.getElementById('theme-toggle').innerHTML = '&#9789;';
+  } else {
+    document.documentElement.classList.add('light');
+    document.getElementById('theme-toggle').innerHTML = '&#9788;';
+  }
+  try { localStorage.setItem('mr-theme', isDark ? 'dark' : 'light'); } catch(e) {}
+}
+
+document.getElementById('theme-toggle').addEventListener('click', function() {
+  isDark = !isDark;
+  applyTheme();
+});
+
+// Load saved theme
+try {
+  var saved = localStorage.getItem('mr-theme');
+  if (saved === 'light') { isDark = false; applyTheme(); }
+} catch(e) {}
+
+// --- Mute ---
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('mute-btn').innerHTML = muted ? '&#128263;' : '&#128264;';
+}
+
+// --- Countdown before workout ---
+function showCountdown(callback) {
+  var overlay = document.getElementById('countdown-overlay');
+  var numEl = document.getElementById('countdown-number');
+  var labelEl = document.getElementById('countdown-label');
+  var exercise = currentExercises[0];
+  labelEl.textContent = 'Get ready: ' + exercise.name;
+  overlay.classList.add('active');
+  inCountdown = true;
+
+  var count = 3;
+  numEl.textContent = count;
+  beepTick();
+
+  countdownInterval = setInterval(function() {
+    count--;
+    if (count > 0) {
+      numEl.textContent = count;
+      numEl.style.animation = 'none';
+      void numEl.offsetWidth; // reflow
+      numEl.style.animation = 'countPop 0.5s ease-out';
+      beepTick();
+    } else {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      inCountdown = false;
+      overlay.classList.remove('active');
+      beepTransition();
+      callback();
+    }
+  }, 800);
+}
+
+// --- Start workout ---
+function startWorkout(tier) {
+  currentTier = tier;
+  if (tier === 0) {
+    currentExercises = ULTRA_EXERCISES.slice();
+  } else {
+    currentExercises = EXERCISES.filter(function(e) { return e.tier <= tier; });
+  }
+  currentIndex = 0;
+  paused = false;
+  workoutStartTime = Date.now();
+
+  showScreen('workout-screen');
+  document.getElementById('workout-tier-label').textContent = TIER_LABELS[tier];
+  showCountdown(function() {
+    startExercise();
+  });
+}
+
+// --- Exercise loop ---
+function startExercise() {
+  if (currentIndex >= currentExercises.length) {
+    finishWorkout();
+    return;
+  }
+
+  var ex = currentExercises[currentIndex];
+  document.getElementById('exercise-name').textContent = ex.name;
+  document.getElementById('exercise-tips').textContent = ex.tips;
+  document.getElementById('workout-progress-text').textContent =
+    (currentIndex + 1) + ' / ' + currentExercises.length;
+  document.getElementById('progress-bar-fill').style.width =
+    ((currentIndex / currentExercises.length) * 100) + '%';
+
+  // Next preview
+  var nextEl = document.getElementById('next-preview');
+  if (currentIndex + 1 < currentExercises.length) {
+    nextEl.innerHTML = 'Next: <strong>' + currentExercises[currentIndex + 1].name + '</strong>';
+  } else {
+    nextEl.innerHTML = 'Last exercise!';
+  }
+
+  exerciseRemaining = ex.duration;
+  exerciseStartTime = performance.now();
+  paused = false;
+  document.getElementById('ring-container').classList.remove('timer-paused');
+  updateTimerDisplay();
+  cancelAnimationFrame(rafId);
+  tick();
+}
+
+var lastBeepSecond = -1;
+
+function tick() {
+  if (paused) {
+    rafId = requestAnimationFrame(tick);
+    return;
+  }
+
+  var ex = currentExercises[currentIndex];
+  var elapsed = (performance.now() - exerciseStartTime) / 1000;
+  exerciseRemaining = ex.duration - elapsed;
+
+  if (exerciseRemaining <= 0) {
+    exerciseRemaining = 0;
+    updateTimerDisplay();
+    currentIndex++;
+    lastBeepSecond = -1;
+
+    if (currentIndex < currentExercises.length) {
+      beepTransition();
+      startExercise();
+    } else {
+      finishWorkout();
+    }
+    return;
+  }
+
+  // Countdown beeps at 3, 2, 1
+  var secLeft = Math.ceil(exerciseRemaining);
+  if (secLeft <= 3 && secLeft !== lastBeepSecond && secLeft > 0) {
+    lastBeepSecond = secLeft;
+    beepTick();
+  }
+
+  updateTimerDisplay();
+  rafId = requestAnimationFrame(tick);
+}
+
+function updateTimerDisplay() {
+  var ex = currentExercises[currentIndex];
+  var secs = Math.ceil(exerciseRemaining);
+  document.getElementById('timer-text').textContent = secs;
+  setRingProgress(exerciseRemaining / ex.duration);
+}
+
+// --- Pause ---
+function togglePause() {
+  if (inCountdown) return;
+  if (paused) {
+    // Resume: adjust start time to account for pause duration
+    var pauseDuration = performance.now() - pausedAt;
+    exerciseStartTime += pauseDuration;
+    paused = false;
+    document.getElementById('ring-container').classList.remove('timer-paused');
+    tick();
+  } else {
+    paused = true;
+    pausedAt = performance.now();
+    document.getElementById('ring-container').classList.add('timer-paused');
+  }
+}
+
+// --- Skip ---
+function skipExercise() {
+  if (inCountdown) return;
+  cancelAnimationFrame(rafId);
+  lastBeepSecond = -1;
+  currentIndex++;
+  if (currentIndex < currentExercises.length) {
+    beepTransition();
+    startExercise();
+  } else {
+    finishWorkout();
+  }
+}
+
+// --- Stop ---
+function stopWorkout() {
+  cancelAnimationFrame(rafId);
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  inCountdown = false;
+  paused = false;
+  lastBeepSecond = -1;
+  document.getElementById('countdown-overlay').classList.remove('active');
+  showScreen('select-screen');
+}
+
+// --- Finish ---
+function finishWorkout() {
+  cancelAnimationFrame(rafId);
+  beepComplete();
+  document.getElementById('progress-bar-fill').style.width = '100%';
+
+  var elapsed = Math.round((Date.now() - workoutStartTime) / 1000);
+  var mins = Math.floor(elapsed / 60);
+  var secs = elapsed % 60;
+  var timeStr = mins > 0
+    ? mins + ' min ' + secs + ' sec'
+    : secs + ' seconds';
+
+  document.getElementById('complete-subtitle').textContent =
+    TIER_LABELS[currentTier] + ' \u2014 ' + currentExercises.length + ' exercises';
+  document.getElementById('complete-time').textContent = timeStr;
+
+  showScreen('complete-screen');
+}
+</script>
+</body>
+</html>
