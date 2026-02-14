@@ -223,8 +223,29 @@ body {
 .exercise-name {
   font-size: clamp(1.4rem, 5vw, 2rem);
   font-weight: 700;
-  margin-bottom: 8px;
   line-height: 1.2;
+}
+.exercise-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.yt-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 1.1rem;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+.yt-link:hover { color: #ff0000; }
+.rest-label {
+  color: var(--accent);
+  font-size: clamp(1rem, 3vw, 1.2rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 .exercise-tips {
   color: var(--text-dim);
@@ -367,6 +388,19 @@ body {
   transition: opacity 0.2s;
 }
 .restart-btn:hover { opacity: 0.85; }
+.continue-btn {
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  padding: 14px 36px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 12px;
+}
+.continue-btn:hover { background: var(--accent); color: #fff; }
 
 /* Tap hint */
 .tap-hint {
@@ -429,8 +463,11 @@ body {
     </div>
   </div>
 
-  <div class="timer-area" id="timer-area" onclick="togglePause()">
-    <div id="exercise-name" class="exercise-name"></div>
+  <div class="timer-area" id="timer-area" onclick="handleTimerAreaClick(event)">
+    <div class="exercise-name-row">
+      <div id="exercise-name" class="exercise-name"></div>
+      <a id="yt-link" class="yt-link" href="#" target="_blank" rel="noopener" aria-label="Watch on YouTube" style="display:none">&#9654;&#xFE0F;</a>
+    </div>
     <div id="exercise-tips" class="exercise-tips"></div>
     <div class="ring-container" id="ring-container">
       <svg class="ring-svg" viewBox="0 0 120 120">
@@ -457,6 +494,7 @@ body {
   <div id="complete-subtitle" class="complete-subtitle"></div>
   <div id="complete-time" class="complete-time"></div>
   <button class="restart-btn" onclick="showScreen('select-screen')">Do it again</button>
+  <button class="continue-btn" id="continue-btn" onclick="continueToNextTier()" style="display:none">Continue to next tier</button>
 </div>
 
 <script>
@@ -501,6 +539,9 @@ var TIER_LABELS = {
   10: '10 Min \u2014 Full'
 };
 
+// --- Tier progression order ---
+var TIER_ORDER = [0, 1, 3, 5, 10];
+
 // --- State ---
 var currentExercises = [];
 var currentIndex = 0;
@@ -514,6 +555,8 @@ var muted = false;
 var workoutStartTime = 0;
 var countdownInterval = null;
 var inCountdown = false;
+var inRestPause = false;
+var REST_DURATION = 3;
 
 // --- Audio ---
 var audioCtx = null;
@@ -548,6 +591,26 @@ function beepComplete() {
   playBeep(660, 0.15, 0.15);
   setTimeout(function() { playBeep(880, 0.15, 0.15); }, 180);
   setTimeout(function() { playBeep(1100, 0.3, 0.18); }, 360);
+}
+
+// --- Text-to-Speech ---
+function speakExerciseName(name) {
+  if (muted) return;
+  try {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      var utterance = new SpeechSynthesisUtterance(name);
+      utterance.rate = 1;
+      utterance.volume = 0.8;
+      window.speechSynthesis.speak(utterance);
+    }
+  } catch (e) { /* ignore TTS errors */ }
+}
+
+// --- YouTube link helper ---
+function getYouTubeSearchUrl(exerciseName) {
+  var query = encodeURIComponent(exerciseName + ' exercise demo');
+  return 'https://www.youtube.com/results?search_query=' + query;
 }
 
 // --- Ring ---
@@ -652,6 +715,57 @@ function startWorkout(tier) {
   });
 }
 
+// --- Rest pause between exercises ---
+function startRestPause(nextIndex) {
+  inRestPause = true;
+  var nextEx = currentExercises[nextIndex];
+
+  document.getElementById('exercise-name').textContent = 'Rest';
+  document.getElementById('exercise-tips').textContent = '';
+  document.getElementById('yt-link').style.display = 'none';
+
+  var nextEl = document.getElementById('next-preview');
+  nextEl.innerHTML = 'Up next: <strong>' + nextEx.name + '</strong>';
+
+  // Announce upcoming exercise via TTS
+  speakExerciseName(nextEx.name);
+
+  exerciseRemaining = REST_DURATION;
+  exerciseStartTime = performance.now();
+  paused = false;
+  document.getElementById('ring-container').classList.remove('timer-paused');
+  updateRestDisplay();
+  cancelAnimationFrame(rafId);
+  tickRest();
+}
+
+function tickRest() {
+  if (paused) {
+    rafId = requestAnimationFrame(tickRest);
+    return;
+  }
+
+  var elapsed = (performance.now() - exerciseStartTime) / 1000;
+  exerciseRemaining = REST_DURATION - elapsed;
+
+  if (exerciseRemaining <= 0) {
+    exerciseRemaining = 0;
+    inRestPause = false;
+    beepTransition();
+    startExercise();
+    return;
+  }
+
+  updateRestDisplay();
+  rafId = requestAnimationFrame(tickRest);
+}
+
+function updateRestDisplay() {
+  var secs = Math.ceil(exerciseRemaining);
+  document.getElementById('timer-text').textContent = secs;
+  setRingProgress(exerciseRemaining / REST_DURATION);
+}
+
 // --- Exercise loop ---
 function startExercise() {
   if (currentIndex >= currentExercises.length) {
@@ -666,6 +780,16 @@ function startExercise() {
     (currentIndex + 1) + ' / ' + currentExercises.length;
   document.getElementById('progress-bar-fill').style.width =
     ((currentIndex / currentExercises.length) * 100) + '%';
+
+  // YouTube link
+  var ytLink = document.getElementById('yt-link');
+  ytLink.href = getYouTubeSearchUrl(ex.name);
+  ytLink.style.display = 'inline';
+
+  // Announce exercise name via TTS (only if this is the first exercise, rest pause handles others)
+  if (currentIndex === 0) {
+    speakExerciseName(ex.name);
+  }
 
   // Next preview
   var nextEl = document.getElementById('next-preview');
@@ -699,12 +823,13 @@ function tick() {
   if (exerciseRemaining <= 0) {
     exerciseRemaining = 0;
     updateTimerDisplay();
+    var nextIndex = currentIndex + 1;
     currentIndex++;
     lastBeepSecond = -1;
 
-    if (currentIndex < currentExercises.length) {
-      beepTransition();
-      startExercise();
+    if (nextIndex < currentExercises.length) {
+      // Show rest pause before next exercise
+      startRestPause(nextIndex);
     } else {
       finishWorkout();
     }
@@ -730,6 +855,12 @@ function updateTimerDisplay() {
 }
 
 // --- Pause ---
+function handleTimerAreaClick(event) {
+  // Don't toggle pause when clicking the YouTube link
+  if (event.target.closest('.yt-link')) return;
+  togglePause();
+}
+
 function togglePause() {
   if (inCountdown) return;
   if (paused) {
@@ -738,7 +869,11 @@ function togglePause() {
     exerciseStartTime += pauseDuration;
     paused = false;
     document.getElementById('ring-container').classList.remove('timer-paused');
-    tick();
+    if (inRestPause) {
+      tickRest();
+    } else {
+      tick();
+    }
   } else {
     paused = true;
     pausedAt = performance.now();
@@ -751,6 +886,15 @@ function skipExercise() {
   if (inCountdown) return;
   cancelAnimationFrame(rafId);
   lastBeepSecond = -1;
+
+  if (inRestPause) {
+    // Skip rest pause, go straight to next exercise
+    inRestPause = false;
+    beepTransition();
+    startExercise();
+    return;
+  }
+
   currentIndex++;
   if (currentIndex < currentExercises.length) {
     beepTransition();
@@ -768,15 +912,59 @@ function stopWorkout() {
     countdownInterval = null;
   }
   inCountdown = false;
+  inRestPause = false;
   paused = false;
   lastBeepSecond = -1;
+  try { window.speechSynthesis.cancel(); } catch(e) {}
   document.getElementById('countdown-overlay').classList.remove('active');
   showScreen('select-screen');
+}
+
+// --- Continue to next tier ---
+function getNextTier(tier) {
+  var idx = TIER_ORDER.indexOf(tier);
+  if (idx >= 0 && idx < TIER_ORDER.length - 1) {
+    return TIER_ORDER[idx + 1];
+  }
+  return null;
+}
+
+function continueToNextTier() {
+  var nextTier = getNextTier(currentTier);
+  if (nextTier === null) return;
+
+  // Get only the NEW exercises from the next tier
+  var previousMax = currentTier;
+  currentTier = nextTier;
+
+  if (nextTier === 0) {
+    currentExercises = ULTRA_EXERCISES.slice();
+  } else {
+    currentExercises = EXERCISES.filter(function(e) {
+      return e.tier > previousMax && e.tier <= nextTier;
+    });
+  }
+
+  // If somehow no new exercises, fall back to full tier
+  if (currentExercises.length === 0) {
+    currentExercises = EXERCISES.filter(function(e) { return e.tier <= nextTier; });
+  }
+
+  currentIndex = 0;
+  paused = false;
+  workoutStartTime = Date.now();
+
+  showScreen('workout-screen');
+  document.getElementById('workout-tier-label').textContent = TIER_LABELS[nextTier];
+  showCountdown(function() {
+    startExercise();
+  });
 }
 
 // --- Finish ---
 function finishWorkout() {
   cancelAnimationFrame(rafId);
+  inRestPause = false;
   beepComplete();
   document.getElementById('progress-bar-fill').style.width = '100%';
 
@@ -790,6 +978,16 @@ function finishWorkout() {
   document.getElementById('complete-subtitle').textContent =
     TIER_LABELS[currentTier] + ' \u2014 ' + currentExercises.length + ' exercises';
   document.getElementById('complete-time').textContent = timeStr;
+
+  // Show continue button if there's a next tier
+  var continueBtn = document.getElementById('continue-btn');
+  var nextTier = getNextTier(currentTier);
+  if (nextTier !== null) {
+    continueBtn.textContent = 'Continue \u2192 ' + TIER_LABELS[nextTier];
+    continueBtn.style.display = 'inline-block';
+  } else {
+    continueBtn.style.display = 'none';
+  }
 
   showScreen('complete-screen');
 }
