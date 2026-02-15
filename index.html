@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Morning Routine</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -498,6 +502,37 @@ body {
 </div>
 
 <script>
+// --- Service Worker ---
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+// --- Generate PNG icons from SVG for PWA ---
+(function() {
+  function generateIcon(size, callback) {
+    var canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    var ctx = canvas.getContext('2d');
+    var img = new Image();
+    img.onload = function() {
+      ctx.drawImage(img, 0, 0, size, size);
+      canvas.toBlob(callback, 'image/png');
+    };
+    img.src = 'icon.svg';
+  }
+  function saveIcon(blob, name) {
+    // Cache the generated PNG so the manifest can reference it
+    if ('caches' in window) {
+      caches.open('morning-routine-v1').then(function(cache) {
+        cache.put(name, new Response(blob, { headers: { 'Content-Type': 'image/png' } }));
+      });
+    }
+  }
+  generateIcon(192, function(blob) { if (blob) saveIcon(blob, 'icon-192.png'); });
+  generateIcon(512, function(blob) { if (blob) saveIcon(blob, 'icon-512.png'); });
+})();
+
 // --- Exercise data ---
 var EXERCISES = [
   // Tier 1: Wake Up the System (1 min)
